@@ -1,0 +1,289 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+	<title>Empleados</title>
+	<link th:href="@{/webjars/bootstrap/3.3.7/css/bootstrap.min.css}" rel="stylesheet" media="screen" />
+	<link th:href="@{/webjars/bootstrap-table/1.12.1/dist/bootstrap-table.min.css}" rel="stylesheet" media="screen" />
+	<link th:href="@{/css/global.css}" rel="stylesheet" media="screen" />
+</head>
+<body>
+<div class="container">
+	<div class="panel panel-default">
+		<div class="panel-heading">
+			<h3 class="panel-title">Empleados</h3>
+		</div>
+		<div class="panel-body">
+			<table id="empleados-table"></table>
+			<div class="empleados-table-toolbar">
+				<div class="form-inline" role="form">
+					<button id="agregar-nuevo" type="button" class="btn btn-primary">Agregar Nuevo</button>
+				</div>
+			</div>
+			<div id="edicion" style="display:none">
+				<div class="separacion-15"></div>
+				<form class="form-horizontal">
+					<input type="hidden" id="id"/>
+					<div class="form-group">
+						<label for="legajo" class="col-md-2 control-label">Legajo</label>
+						<div class="col-md-2">
+							<input type="text" class="form-control" id="legajo" disabled>
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="tpo_doc" class="col-md-2 control-label" >Tipo doc.</label>
+						<div class="col-md-4">
+							<select  class="form-control" id="tpo_doc" required="required">
+							</select>
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="nro_doc" class="col-md-2 control-label">Nro. doc</label>
+						<div class="col-md-4">
+							<input type="text" class="form-control" pattern="\d*" maxlength="10" title="Ingrese un valor válido" required="required"   id="nro_doc" placeholder="Nro. doc">
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="nombreYApellido" class="col-md-2 control-label">Nombre y Apellido</label>
+						<div class="col-md-4">
+							<input type="text" class="form-control" id="nombreYApellido" placeholder="Nombre y Apellido">
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="edad" class="col-md-2 control-label">Edad</label>
+						<div class="col-md-4">
+							<input type="text" class="form-control" pattern="\d*" maxlength="2" title="Ingrese un valor válido" id="edad" placeholder="Edad">
+						</div>
+					</div>
+					<div class="form-group">
+						<div class="col-md-offset-2 col-md-4">
+							<button type="button" id="cancelar" class="btn btn-default" style="display:none">Cancelar</button>
+							<button type="button" id="guardar" class="btn btn-primary" style="display:none">Guardar</button>
+							<button type="button" id="eliminar" class="btn btn-danger" style="display:none">Eliminar</button>
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+</div>
+</div>
+<script th:src="@{/webjars/jquery/1.11.1/jquery.min.js}" type="text/javascript"></script>
+<script type="text/javascript" th:inline="javascript">
+
+	$(function(){
+
+		$("table#empleados-table").bootstrapTable({
+			url: [[@{/api/empleados}]],
+		pagination : true,
+				sidePagination: 'server',
+				pageSize: 5,
+				pageList: [5,10,20],
+				showRefresh: true,
+				clickToSelect: true,
+				singleSelect: true,
+				columns: [
+			{
+				title: "#",
+				checkbox: true,
+			},
+			{
+				field: "id",
+				title: "ID",
+				visible: false
+			},
+			{
+				field: "legajo",
+				title: "Legajo"
+			},
+			{
+				field: "tpo_doc",
+				title: "Tipo doc."
+			},
+			{
+				field: "nro_doc",
+				title: "Nro. doc."
+			},
+			{
+				field: "nombreYApellido",
+				title: "Nombre y Apellido"
+			},
+			{
+				field: "edad",
+				title: "Edad"
+			}
+		],
+				buttonsAlign: 'right',
+				toolbarAlign: 'right',
+				toolbar: "div#empleados-table-toolbar",
+				onCheck: function(empleado){
+			abrirEdicion(empleado);
+		},
+		onUncheck: function(){
+			cerrarEdicion();
+		},
+		onLoadSuccess: function(){
+			setearTposDoc();
+		}
+
+	});
+
+		function setearTposDoc(){
+			$.ajax({
+				url: [[@{/api/tiposDoc/}]],
+			method:"GET"
+		}).done(function(resp){
+				tposDoc = resp;
+				let select = $("#tpo_doc");
+				if($("#tpo_doc").children().length<1) {
+					tposDoc.forEach(x => {
+						$("#tpo_doc").append(`<option value="${x.id}">
+                 ${x.descripcion}</option>`);
+					})
+				}
+				let datos = $("table#empleados-table").bootstrapTable('getOptions').data;
+				for(let i=0; i<datos.length ; i++){
+					descTpoDoc = tposDoc.filter(x=> x.id==datos[i]['tpo_doc'])[0].descripcion;
+					datos[i]['tpo_doc'] = descTpoDoc;
+					$("table#empleados-table").bootstrapTable('updateRow', {
+						index: i,
+						row: datos[i]
+					});
+				}
+
+			}).fail(handleFailure);
+
+		}
+
+		$("button#agregar-nuevo").click(abrirCreacion);
+		$("button#cancelar").click(cerrarEdicion);
+		$("button#guardar").click(guardarEmpleado);
+		$("button#eliminar").click(eliminarEmpleado);
+
+		function abrirCreacion(){
+			$("button#agregar-nuevo").prop("disabled",true);
+			$("button#cancelar").show();
+			$("button#guardar").show();
+			$("button#eliminar").hide();
+			$("div#edicion").show();
+			$("input#id").val(null);
+			$("input#legajo").val(null);
+			$("input#nombreYApellido").val(null);
+			$("input#edad").val(null);
+		}
+
+		function abrirEdicion(empleado){
+			$("button#agregar-nuevo").prop("disabled",true);
+			$("button#cancelar").show();
+			$("button#guardar").show();
+			$("button#eliminar").show();
+			$("div#edicion").show();
+			$("input#id").val(empleado.id);
+			$("input#edad").val(empleado.edad);
+			$("input#nro_doc").val(empleado.nro_doc);
+			$("input#legajo").val(empleado.legajo);
+			$("input#nombreYApellido").val(empleado.nombreYApellido);
+		}
+
+		function cerrarEdicion(){
+			$("div#edicion").hide();
+			$("input#edad").val(null);
+			$("input#nro_doc").val(null);
+			$("input#legajo").val(null);
+			$("input#nombreYApellido").val(null);
+			$("button#agregar-nuevo").prop("disabled",false);
+		}
+
+		function eliminarEmpleado(){
+			let obj = $("table#empleados-table").bootstrapTable('getSelections')[0];
+			let id = obj!=undefined?obj.id:null;
+			bootbox.confirm({
+				message: "¿Está seguro que desea eliminar al empleado?",
+				size: "small",
+				callback: function(confirmed){
+					if(id!=null){
+						$.ajax({
+							url: [[@{/api/empleados/}]]+ id,
+								method: "DELETE"
+					}).done(function(){
+							cerrarEdicion();
+							refreshTable();
+						}).fail(handleFailure);
+					}
+				}
+			});
+		}
+
+		function guardarEmpleado(){
+			var empleado = getDatosEmpleado();
+			var existente = empleado.id
+			if ( existente ){
+				actualizarEmpleadoExistente(empleado);
+			} else {
+				darDeAltaEmpleado(empleado);
+			}
+		}
+
+		function darDeAltaEmpleado(empleado){
+			$.ajax({
+				url: [[@{/api/empleados/}]],
+			method: "POST",
+					dataType: 'json',
+					contentType: "application/json; charset=utf-8",
+					data: JSON.stringify(empleado)
+		}).done(function(){
+				cerrarEdicion();
+				refreshTable();
+			}).fail(handleFailure);
+		}
+
+		function actualizarEmpleadoExistente(empleado){
+			$.ajax({
+				url: [[@{/api/empleados/}]] + empleado.id,
+					method: "PUT",
+					contentType: "application/json; charset=utf-8",
+					dataType: 'json',
+					data: JSON.stringify(empleado)
+		}).done(function(){
+				cerrarEdicion();
+				refreshTable();
+			}).fail(handleFailure);
+		}
+
+		function handleFailure(e){
+			var msg = "Ocurrió un problema al ejecutar la operación";
+			switch ( e.status ){
+				case 501:
+					msg = "Método sin implementar";
+					break;
+			}
+			bootbox.alert(msg);
+		}
+
+		function refreshTable(){
+			$("table#empleados-table").bootstrapTable("refresh");
+		}
+
+		function getDatosEmpleado(){
+			if(isNaN($("input#edad").val()) || isNaN($("input#nro_doc").val() )){
+				bootbox.alert("Ha ingresado valores no númericos");
+				return;
+			}
+			return {
+				id: $("input#id").val(),
+				legajo: $("input#legajo").val(),
+				nombreYApellido: $("input#nombreYApellido").val(),
+				nro_doc:$("input#nro_doc").val(),
+				edad:$("input#edad").val(),
+				tpo_doc:$("#tpo_doc").children("option:selected").val()
+			}
+		}
+	});
+
+</script>
+<script th:src="@{/webjars/bootstrap-table/1.12.1/dist/bootstrap-table.min.js}" type="text/javascript"></script>
+<script th:src="@{/webjars/bootstrap/3.3.7/js/bootstrap.min.js}" type="text/javascript"></script>
+<script th:src="@{/webjars/bootbox/4.4.0/bootbox.js}" type="text/javascript"></script>
+</body>
+</html>
